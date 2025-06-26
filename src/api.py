@@ -24,18 +24,19 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
+import sys
 import time
 from datetime import datetime
 from datetime import timezone
 
 import google.genai as genai
-from fastapi import HTTPException
+from fastapi import HTTPException, FastAPI
+from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 from google.genai import types
 from google.genai.types import GenerateContentConfig
 
-from src.main import GENAI_API_KEY
-from src.middleware import app
 from src.models import (
     OllamaModelList,
     OllamaModelCard,
@@ -44,13 +45,117 @@ from src.models import (
 )
 
 # --- Logger Configuration ---
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+
+# --- FastAPI App Configuration ---
+app = FastAPI(
+    title="Gemini Ollama Proxy",
+    description="A lightweight proxy that lets you use Google's Gemini API through"
+                "an Ollama-compatible interface.",
+)
 
 # --- Gemini Client Configuration ---
+_GENAI_API_KEY = os.getenv("GENAI_API_KEY")
+if _GENAI_API_KEY:
+    _logger.info(
+        f"Google AI API Key loaded successfully (ending with ...{_GENAI_API_KEY[-7:]})"
+    )
+else:
+    _logger.error(
+        "Google AI API Key not found. Please set GENAI_API_KEY environment variable."
+    )
+    sys.exit(1)
+
 try:
-    client = genai.Client(api_key=GENAI_API_KEY)
+    _client = genai.Client(api_key=_GENAI_API_KEY)
 except Exception as e:
-    logger.error(f"Error initializing Gemini client: {e}", exc_info=True)
+    _logger.error(f"Error initializing Gemini client: {e}", exc_info=True)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """
+    Middleware to log incoming HTTP requests and outgoing responses.
+
+    Logs the request method, path, and optionally the request body (at DEBUG level).
+    Logs the response status code, processing time, and optionally the response body (at DEBUG level).
+
+    Args:
+        request: The incoming Request object.
+        call_next: The next middleware or the endpoint handler in the chain.
+
+    Returns:
+        The Response object from the next middleware or endpoint.
+    """
+    start_time = time.time()
+    _logger.info(f"--> Incoming request: {request.method} {request.url.path}")
+
+    # --- Log Request Body ---
+    request_body = await request.body()
+    if request_body:
+        try:
+            _logger.debug(
+                f"    Request body: {json.dumps(json.loads(request_body), indent=2)}"
+            )
+        except json.JSONDecodeError:
+            _logger.debug(
+                f"    Request body (not JSON): {request_body.decode(errors='ignore')}"
+            )
+        except Exception as e:
+            _logger.debug(f"    Could not log request body: {e}")
+
+    stream_consumed = False
+
+    async def receive() -> dict:
+        nonlocal stream_consumed
+        if not stream_consumed:
+            stream_consumed = True
+            return {
+                "body": request_body,
+                "type": "http.request",
+            }
+        return {"type": "http.disconnect"}
+
+    new_request = Request(request.scope, receive)
+
+    # --- Process the request ---
+    response = await call_next(new_request)
+
+    # --- Log Response ---
+    process_time = (time.time() - start_time) * 1000
+    _logger.info(
+        f"<-- Outgoing response: {response.status_code} (in {process_time:.2f}ms)"
+    )
+
+    # --- Log Response Body (at DEBUG level) ---
+    try:
+        if isinstance(response, (JSONResponse, PlainTextResponse)):
+            response_body_bytes = getattr(response, "body", b"")
+            if response_body_bytes:
+                content_type = response.headers.get("content-type", "")
+                decoded_body = response_body_bytes.decode("utf-8", errors="ignore")
+                if "application/json" in content_type:
+                    try:
+                        response_body_log_message = f"Response body (JSON): {json.dumps(json.loads(decoded_body), indent=2)}"
+                    except json.JSONDecodeError:
+                        response_body_log_message = (
+                            f"Response body (JSON, decode error): {decoded_body}"
+                        )
+                elif "text/plain" in content_type:
+                    response_body_log_message = f"Response body (text): {decoded_body}"
+                else:
+                    response_body_log_message = f"Response body (unhandled content type for logging): {content_type} - {decoded_body[:200]}..."
+            else:
+                response_body_log_message = "Response body is empty"
+        elif isinstance(response, StreamingResponse):
+            response_body_log_message = "Response body not logged (StreamingResponse)"
+        else:
+            response_body_log_message = f"Response body not logged (Unhandled Response Type: {type(response).__name__})"
+    except Exception as e:
+        response_body_log_message = f"Error logging response body: {e}"
+
+    _logger.debug(f"    {response_body_log_message}")
+    return response
 
 
 @app.get("/api/tags", response_model=OllamaModelList)
@@ -59,14 +164,14 @@ async def list_ollama_models():
     Retrieves the available models from the Google Gemini API,
     transforms them into the Ollama-compatible format, and returns them.
     """
-    if not client:
+    if not _client:
         raise HTTPException(status_code=500, detail="Gemini client not initialized.")
 
-    logger.info(
+    _logger.info(
         "Request to /api/tags received. Fetching the actual Gemini model list..."
     )
     try:
-        available_models = await asyncio.to_thread(client.models.list)
+        available_models = await asyncio.to_thread(_client.models.list)
         ollama_formatted_models = []
 
         for model in available_models:
@@ -84,17 +189,17 @@ async def list_ollama_models():
                 ollama_formatted_models.append(card.model_dump())
 
         response_data = {"models": ollama_formatted_models}
-        logger.info(
+        _logger.info(
             f"Sending {len(ollama_formatted_models)} transformed models to the client."
         )
 
         response = JSONResponse(content=response_data)
-        logger.debug(f"Response data:\n{json.dumps(response_data, indent=2)}")
+        _logger.debug(f"Response data:\n{json.dumps(response_data, indent=2)}")
 
         return response
 
     except Exception as e2:
-        logger.error(
+        _logger.error(
             f"Error fetching or transforming Gemini models: {e2}",
             exc_info=True,
         )
@@ -115,9 +220,9 @@ async def chat_completions(request: ChatCompletionRequest):
         formatted to be compatible with the Ollama API chat completion response.
 
     Raises:
-        HTTPException: If the Gemini client is not initialized or an error occurs during generation.
+        HTTPException: If the Gemini client is not initialized, or an error occurs during generation.
     """
-    if not client:
+    if not _client:
         raise HTTPException(status_code=500, detail="Gemini client not initialized.")
 
     # --- Convert Ollama messages to Gemini's format ---
@@ -156,7 +261,7 @@ async def chat_completions(request: ChatCompletionRequest):
 
                 def generator_thread():
                     try:
-                        response_iterator = client.models.generate_content_stream(
+                        response_iterator = _client.models.generate_content_stream(
                             config=generation_config,
                             contents=api_contents,
                             model=model_name_for_api,
@@ -180,7 +285,7 @@ async def chat_completions(request: ChatCompletionRequest):
                         raise item
                     yield item
             except Exception as stream_error:
-                logger.error(f"Error in stream wrapper: {stream_error}", exc_info=True)
+                _logger.error(f"Error in stream wrapper: {stream_error}", exc_info=True)
 
         async def stream_generator():
             try:
@@ -213,13 +318,13 @@ async def chat_completions(request: ChatCompletionRequest):
                 yield f"{json.dumps(final_chunk)}\n"
 
             except Exception as stream_error:
-                logger.error(f"Error during streaming: {stream_error}", exc_info=True)
+                _logger.error(f"Error during streaming: {stream_error}", exc_info=True)
 
         return StreamingResponse(stream_generator(), media_type="application/x-ndjson")
     else:
         try:
             response = await asyncio.to_thread(
-                client.models.generate_content,
+                _client.models.generate_content,
                 config=generation_config,
                 contents=api_contents,
                 model=model_name_for_api,
@@ -245,12 +350,12 @@ async def chat_completions(request: ChatCompletionRequest):
                     "total_tokens": response.usage_metadata.total_token_count,
                 },
             }
-            logger.debug(
+            _logger.debug(
                 f"Sending non-stream response: {json.dumps(response_json, indent=2)}"
             )
             return JSONResponse(content=response_json)
         except Exception as non_stream_error:
-            logger.error(
+            _logger.error(
                 f"Error in non-stream request: {non_stream_error}", exc_info=True
             )
             raise HTTPException(status_code=500, detail=str(non_stream_error))
@@ -264,7 +369,7 @@ def read_root():
     Returns:
         A simple message indicating the API is running.
     """
-    logger.debug("Root request received.")
+    _logger.debug("Root request received.")
     return PlainTextResponse("Ollama is running.")
 
 
@@ -276,5 +381,5 @@ async def health():
     Returns:
         A status message indicating the service is healthy.
     """
-    logger.debug("Health check request received.")
+    _logger.debug("Health check request received.")
     return JSONResponse(content={"status": "healthy"})

@@ -22,37 +22,25 @@
 
 import logging
 import os
-import sys
 
 import uvicorn
 from dotenv import load_dotenv
 
+from src.api import app
 from src.logging_config import setup_logging
-from src.middleware import app
 
 # --- Logger Configuration ---
 setup_logging()
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 # Load .env file, required when locally developing
 load_dotenv()
 
 # --- Configuration from Environment Variables ---
-HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", 11434))
-
-GENAI_API_KEY = os.getenv("GENAI_API_KEY")
-if GENAI_API_KEY:
-    logger.info(
-        f"Google AI API Key loaded successfully (ending with ...{GENAI_API_KEY[-7:]})"
-    )
-else:
-    logger.error(
-        "Google AI API Key not found. Please set GENAI_API_KEY environment variable."
-    )
-    sys.exit(1)
+_HOST = os.getenv("HOST", "0.0.0.0")
+_PORT = int(os.getenv("PORT", 11434))
 
 if __name__ == "__main__":
     # noinspection HttpUrlsUsage
-    logger.info(f"Starting Gemini proxy on http://{HOST}:{PORT}")
-    uvicorn.run(app, host=HOST, port=PORT)
+    _logger.info(f"Starting Gemini proxy on http://{_HOST}:{_PORT}")
+    uvicorn.run(app, host=_HOST, port=_PORT)
