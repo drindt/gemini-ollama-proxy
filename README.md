@@ -153,22 +153,26 @@ important metadata to your image that helps with versioning and traceability.
 
 ```bash
 # Build a new image with creation timestamp and version tags
-# Uncomment to include git revision in build arguments:
-export VERSION="0.1.0"
 podman-compose build \
-               --build-arg REVISION=$(git rev-parse --short HEAD) \
                --build-arg CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-               --build-arg VERSION=$VERSION
+               --build-arg REVISION=$(git rev-parse --short HEAD) \
+               --build-arg VERSION=$(grep "^version" pyproject.toml | sed -e 's/version = //' -e 's/"//g')
 
 # Verify the container labels after building
 podman inspect gemini-ollama-proxy | jq '.[].Labels'
 ```
 
-Tag and push to a container registry
+Tag and push to a container registry.
 
 ```bash
-podman tag gemini-ollama-proxy gemini-ollama-proxy:$VERSION
-podman push registry.example.com/$USER/my-gemini-ollama-proxy:$VERSION
+podman tag gemini-ollama-proxy docker.io/drindt/gemini-ollama-proxy:$(grep "^version" pyproject.toml | sed -e 's/version = //' -e 's/"//g')
+podman tag \
+    docker.io/drindt/gemini-ollama-proxy:$(grep "^version" pyproject.toml | sed -e 's/version = //' -e 's/"//g') \
+    docker.io/drindt/gemini-ollama-proxy:latest
+podman push docker.io/drindt/gemini-ollama-proxy:$(grep "^version" pyproject.toml | sed -e 's/version = //' -e 's/"//g')
+podman push docker.io/drindt/gemini-ollama-proxy:latest
+# Liste Image Situation auf.
+podman image ls
 ```
 
 This ensures your container image is properly versioned and includes relevant metadata like creation timestamp, making
