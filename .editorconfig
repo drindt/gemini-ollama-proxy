@@ -1,0 +1,31 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Settings for configuration files
+[*.{cfg,ini,json,toml}]
+indent_size = 2
+
+# Settings for .env files
+[*.env]
+indent_size = 4
+
+# Markdown-specific settings
+[*.md]
+indent_size = 2
+
+# Python-specific settings
+[*.py]
+max_line_length = 88
+
+# YAML-specific settings
+[*.{yaml,yml}]
+indent_size = 2
+
+[Containerfile]
+indent_size = 4

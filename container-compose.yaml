@@ -1,0 +1,17 @@
+services:
+  gemini-ollama-proxy:
+    build:
+      context: ${PWD:-.}
+    image: ${IMAGE_REGISTRY:-docker.io}/${USER}/${IMAGE_REPOSITORY:-gemini-ollama-proxy}:${IMAGE_TAG:-latest}
+    ports:
+      - ${PORT}:${PORT}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      # noinspection HttpUrlsUsage
+      test: [ "CMD", "curl", "-f", "http://${HOST}:${PORT}/health" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
