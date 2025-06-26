@@ -1,6 +1,6 @@
-# Ollama-Gemini-Gateway
+# Gemini-Ollama-Proxy
 
-An intelligent, self-hosted API gateway that translates [Ollama](https://ollama.com/) API requests to the
+A self-hosted API gateway that translates [Ollama](https://ollama.com/) API requests to the
 [Google Gemini API](https://ai.google.dev/gemini-api). Use powerful Gemini models like Gemini 1.5 Pro directly in your
 favorite Ollama-compatible clients and IDEs.
 

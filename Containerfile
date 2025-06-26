@@ -7,12 +7,12 @@ ARG USER=${USER:-drindt}
 
 LABEL org.opencontainers.image.created=$CREATED
 LABEL org.opencontainers.image.url="https://hub.docker.com/r/drindt/gemini-ollama-proxy"
-LABEL org.opencontainers.image.title="Ollama-Gemini-Gateway"
+LABEL org.opencontainers.image.title="Gemini-Ollama-Proxy"
 LABEL org.opencontainers.image.description="A lightweight proxy that lets you use Google's Gemini API through an Ollama-compatible interface."
 LABEL org.opencontainers.image.version=$VERSION
 LABEL org.opencontainers.image.revision=$REVISION
-LABEL org.opencontainers.image.source="https://github.com/drindt/ollama-gemini-gateway.git"
-LABEL org.opencontainers.image.documentation="https://github.com/drindt/ollama-gemini-gateway/README.md"
+LABEL org.opencontainers.image.source="https://github.com/drindt/gemini-ollama-proxy.git"
+LABEL org.opencontainers.image.documentation="https://github.com/drindt/gemini-ollama-proxy/README.md"
 LABEL org.opencontainers.image.authors="Daniel Rindt"
 LABEL org.opencontainers.image.vendor="Viselabs Inc."
 LABEL org.opencontainers.image.licenses="MIT"
