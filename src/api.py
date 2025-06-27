@@ -208,33 +208,59 @@ async def list_ollama_models():
 
 @app.post("/api/chat")
 @app.post("/v1/chat/completions")
-async def chat_completions(request: ChatCompletionRequest):
+async def chat_completions(raw_request: Request):
     """
     Handles chat completion requests, converting from an Ollama-like format to Gemini's API.
-
-    Args:
-        request: The ChatCompletionRequest containing model, messages, and generation parameters.
-
-    Returns:
-        A streaming or non-streaming JSON response containing the model's reply,
-        formatted to be compatible with the Ollama API chat completion response.
-
-    Raises:
-        HTTPException: If the Gemini client is not initialized, or an error occurs during generation.
+    This version manually cleans the request body to prevent validation errors.
     """
     if not _client:
         raise HTTPException(status_code=500, detail="Gemini client not initialized.")
 
+    # --- Manually parse and clean the request body to handle client inconsistencies ---
+    try:
+        json_body = await raw_request.json()
+
+        # Fix for clients sending messages without a 'content' field.
+        if "messages" in json_body and isinstance(json_body["messages"], list):
+            for message in json_body["messages"]:
+                if (
+                    isinstance(message, dict)
+                    and "role" in message
+                    and "content" not in message
+                ):
+                    message["content"] = ""
+                    _logger.debug("Patched a message missing the 'content' field.")
+
+        # Now, validate the cleaned body with the Pydantic model.
+        request = ChatCompletionRequest.model_validate(json_body)
+
+    except Exception as e:
+        _logger.error(
+            f"Error processing or validating request body: {e}", exc_info=True
+        )
+        raise HTTPException(status_code=400, detail=f"Invalid request body: {e}")
+
     # --- Convert Ollama messages to Gemini's format ---
     system_instruction = None
+    messages_for_gemini = request.messages
+
+    # Heuristic to detect and promote a system prompt from clients (like JetBrains)
+    # that send it as the first user message.
+    if messages_for_gemini:
+        first_message = messages_for_gemini[0]
+        is_system_prompt = first_message.role == "system"
+        is_like_system_prompt = (
+            first_message.role == "user" and "you must" in first_message.content.lower()
+        )
+
+        if is_system_prompt or is_like_system_prompt:
+            _logger.info(
+                f"Promoting message from role '{first_message.role}' to system instruction."
+            )
+            system_instruction = first_message.content
+            messages_for_gemini = messages_for_gemini[1:]
+
     api_contents = []
-
-    if request.messages and request.messages[0].role == "system":
-        system_instruction = request.messages[0].content
-        messages_for_gemini = request.messages[1:]
-    else:
-        messages_for_gemini = request.messages
-
     for msg in messages_for_gemini:
         role = "model" if msg.role == "assistant" else msg.role
         api_contents.append(
