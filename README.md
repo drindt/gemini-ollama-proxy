@@ -91,6 +91,62 @@ to leverage the newest AI without needing a high-end GPU.
     podman-compose down
     ```
 
+## 🚀 Starting the Container Automatically at User Login
+
+To ensure the `gemini-ollama-proxy` container starts automatically whenever your user logs in, you can set up a
+`systemd --user` service. This is a standard way to manage user-specific background processes without needing
+root privileges.
+
+### Setup Steps
+
+1. **Create the systemd user directory** (if it doesn't exist):
+    ```bash
+    mkdir -p ~/.config/systemd/user
+    ```
+
+2. **Create the systemd service file**: This command creates a service file named `gemini-ollama-proxy.service` in the
+   user's systemd configuration directory. The `WorkingDirectory=$(pwd)` ensures `podman-compose` is run from the
+   correct directory where your `compose.yaml` file is located.
+
+    ```bash
+    cat > ~/.config/systemd/user/gemini-ollama-proxy.service <<EOF
+    [Unit]
+    Description=API proxy to translate Ollama API requests to Google Gemini API
+    After=network-online.target
+    Wants=network-online.target
+
+    [Service]
+    ExecStart=/usr/bin/podman-compose up -d
+    ExecStop=/usr/bin/podman-compose down
+    WorkingDirectory=$(pwd)
+    CPUWeight=64
+    IOWeight=64
+    MemoryMax=16M
+    RemainAfterExit=yes
+    Restart=always
+    TimeoutStartSec=0
+
+    [Install]
+    WantedBy=default.target
+    EOF
+
+    # System Units neu laden
+    systemctl --user daemon-reload
+    ```
+
+3. **Enable and Start the Service**: This command enables the service to start automatically on future logins and starts
+   it immediately for the current session.
+    ```bash
+    systemctl --user enable --now gemini-ollama-proxy.service
+    ```
+
+4. **Check the Service Status**: Verify that the service is running correctly.
+    ```bash
+    systemctl --user status gemini-ollama-proxy.service
+    ```
+
+This setup ensures that the proxy is always available in the background after you log in.
+
 ## 🛠️ Usage
 
 Once the proxy is running, you can connect your Ollama-compatible client to it.
