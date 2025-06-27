@@ -17,7 +17,7 @@ indent_size = 4
 
 # Markdown-specific settings
 [*.md]
-indent_size = 2
+indent_size = 4
 
 # Python-specific settings
 [*.py]
