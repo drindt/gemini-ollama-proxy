@@ -27,21 +27,19 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 
 import google.genai as genai
-from fastapi import HTTPException, FastAPI
-from fastapi import Request
-from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from google.genai import types
 from google.genai.types import GenerateContentConfig
 
 from src.models import (
-    OllamaModelList,
+    ChatCompletionRequest,
     OllamaModelCard,
     OllamaModelDetails,
-    ChatCompletionRequest,
+    OllamaModelList,
 )
 
 # --- Logger Configuration ---
@@ -51,7 +49,7 @@ _logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Gemini Ollama Proxy",
     description="A lightweight proxy that lets you use Google's Gemini API through"
-                "an Ollama-compatible interface.",
+    "an Ollama-compatible interface.",
 )
 
 # --- Gemini Client Configuration ---

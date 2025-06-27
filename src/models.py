@@ -20,8 +20,7 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 from pydantic import BaseModel, Field
