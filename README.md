@@ -1,6 +1,6 @@
 # Gemini-Ollama-Proxy
 
-A self-hosted API gateway that translates [Ollama](https://ollama.com/) API requests to the
+A self-hosted API proxy that translates [Ollama](https://ollama.com/) API requests to the
 [Google Gemini API](https://ai.google.dev/gemini-api). Use powerful Gemini models like Gemini 1.5 Pro directly in your
 favorite Ollama-compatible clients and IDEs.
 
@@ -10,7 +10,7 @@ Many modern development tools and IDEs (like JetBrains AI Assistant) offer fanta
 models through the Ollama API. However, running large, high-performance models locally requires significant hardware
 resources.
 
-The Ollama-Gemini-Gateway provides the best of both worlds. It acts as a lightweight bridge, emulating the Ollama API
+The Gemini-Ollama-Proxy provides the best of both worlds. It acts as a lightweight bridge, emulating the Ollama API
 locally while forwarding all requests to be processed by Google's powerful Gemini models in the cloud. This allows you
 to leverage the newest AI without needing a high-end GPU.
 
@@ -42,8 +42,8 @@ to leverage the newest AI without needing a high-end GPU.
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/drindt/ollama-gemini-gateway.git
-   cd ollama-gemini-gateway
+   git clone https://github.com/drindt/gemini-ollama-proxy.git
+   cd gemini-ollama-proxy
    ```
    *This step is necessary to get the required `compose.yaml` and `.env.example` files.*
 
@@ -93,7 +93,7 @@ to leverage the newest AI without needing a high-end GPU.
 
 ## 🛠️ Usage
 
-Once the gateway is running, you can connect your Ollama-compatible client to it.
+Once the proxy is running, you can connect your Ollama-compatible client to it.
 
 ### Example: JetBrains IDE (IntelliJ, PyCharm, etc.)
 
@@ -102,7 +102,7 @@ Once the gateway is running, you can connect your Ollama-compatible client to it
 3. Set the **URL** to the address of your running container, which is typically `http://localhost:11434` (or the port
    you configured).
 4. Click "**Test Connection**." It should show "Connected."
-5. The gateway will now proxy requests from the AI Assistant to the Gemini API.
+5. The service will now proxy requests from the AI Assistant to the Gemini API.
 
 ## ⚙️ Configuration
 
@@ -127,10 +127,10 @@ The documentation is generated directly from the code and is therefore always up
 
 ## 🧠 Controlling AI Creativity
 
-This gateway acts as a true proxy, allowing you to pass generation parameters from your Ollama-compatible client
+This service acts as a true proxy, allowing you to pass generation parameters from your Ollama-compatible client
 directly to the Gemini API. This gives you fine-grained control over the model's responses.
 
-Most Ollama clients (including the JetBrains AI Assistant) allow you to configure these parameters. The gateway forwards
+Most Ollama clients (including the JetBrains AI Assistant) allow you to configure these parameters. The service forwards
 the following settings:
 
 * **`temperature`**: (Default: `0.5`) Controls the randomness of the output. A lower value (e.g., `0.1`) makes the
@@ -148,7 +148,7 @@ creative response.
 
 ## 🔄 Building a New Image Version
 
-When you want to create a new container image version of the gateway, you can use the following commands. These add
+When you want to create a new container image version of the proxy, you can use the following commands. These add
 important metadata to your image that helps with versioning and traceability.
 
 ```bash
